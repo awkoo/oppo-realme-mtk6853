@@ -1,5 +1,4 @@
-name: 编译OPPO/Realme-安卓12-通用mt6853机型内核
-            支持ksu docker lxc kvm Kali-Nethunter
+name: 编译内核
 
 on: [ push, workflow_dispatch ]
     
@@ -31,13 +30,11 @@ jobs:
         mkdir gcc64
         wget -O gcc-aarch64.tar.gz https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/refs/tags/android-12.1.0_r27.tar.gz
         tar -C gcc64/ -zxvf gcc-aarch64.tar.gz
-    
+
         mkdir gcc32
         wget -O gcc-arm.tar.gz https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/+archive/refs/tags/android-12.1.0_r27.tar.gz
         tar -C gcc32/ -zxvf gcc-arm.tar.gz
 
-    - name: 下载Clang编译器
-      run: |
         mkdir clang-aosp
         git clone -q --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6443078 -b 10.0 clang-aosp
 
@@ -47,7 +44,7 @@ jobs:
         key: build-kernel-mido-kernel
         max-size: 2G
 
-    - name: 开始编译内核
+    - name: 编译内核
       working-directory: kernel
       run: |
         export PATH=$GITHUB_WORKSPACE/clang-aosp/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH
@@ -62,8 +59,7 @@ jobs:
        cat >anykernel.sh <<EOF
        properties() { '
        kernel.string=Kernel for mt6853 with KernelSU@${{ steps.versions.outputs.KERNELSU }} & SUSFS@${{ steps.versions.outputs.SUSFS }}
-       do.devicecheck=1
-       device.name1=${{ matrix.device }}
+       do.devicecheck=0
        '; }
        block=auto
        is_slot_device=auto
@@ -74,8 +70,7 @@ jobs:
        flash_boot
        EOF
        cp ${{ runner.temp }}/make/arch/arm64/boot/Image.gz-dtb .
-       mkdir -p kernel-file
-       zip -q -r kernel-file/AnyKernel3.zip *
+       zip -q -r AnyKernel3.zip *
 
     - name: 发布
       uses: softprops/action-gh-release@v2
@@ -83,6 +78,6 @@ jobs:
         tag_name: awkoo
         name: Kernel build awkoo
         files: |
-            kernel-file/AnyKernel3.zip
+            ak3/AnyKernel3.zip
             ak3/Image.gz-dtb
 
