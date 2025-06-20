@@ -68,7 +68,7 @@ jobs:
       working-directory: kernel
       run: |
         export PATH=$GITHUB_WORKSPACE/clang/bin:$GITHUB_WORKSPACE/gcc-aarch64/bin:$GITHUB_WORKSPACE/gcc-arm/bin:$PATH
-        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 mt6853-ss_defconfig CONFIG_KSU_MANUAL_HOOK=y CONFIG_KSU_SUSFS_SUS_SU=n
+        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 mt6853-ss_defconfig
         make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
     - name: 打包AnyKernel3
