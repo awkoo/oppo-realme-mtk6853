@@ -48,7 +48,7 @@ jobs:
       working-directory: kernel
       run: |
         export PATH=$GITHUB_WORKSPACE/clang-aosp/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH
-        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 mt6853-ss_defconfig
+        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 custom_defconfig
         make -s -j$(nproc --all) CC="ccache clang" O=${{ runner.temp }}/make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- LD=ld.lld LOCALVERSION=-awkoo
 
     - name: 打包AnyKernel3
