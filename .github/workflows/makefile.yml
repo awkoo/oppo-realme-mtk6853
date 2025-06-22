@@ -4,7 +4,7 @@ on: [ push, workflow_dispatch ]
     
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with: { path: kernel }
@@ -13,42 +13,41 @@ jobs:
       working-directory: kernel
       run: git submodule update --init --remote --recursive
 
-    - name: 获取版本信息
-      id: versions
-      working-directory: kernel
+    - name: 安装软件包
+      run: sudo apt update && sudo apt install binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+
+    - name: 缓存工具链
+      id: cache-toolchains
+      uses: actions/cache@v4
+      with:
+        path:
+          clang/
+          gcc32/
+          gcc64/
+        key: toolchains-android12
+
+    - name: 下载编译器
+      if: steps.cache-toolchains.outputs.cache-hit != 'true'
       run: |
-        echo KERNELSU=$(cd KernelSU && expr 10606 + $(git rev-list --count main)) >> $GITHUB_OUTPUT
-        echo SUSFS=$(cat include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g') >> $GITHUB_OUTPUT
+        git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.git -b android12-release --depth=1 gcc64
 
-    - name: 构建编译内核环境
-      run: |
-        sudo apt-get update
-        sudo -E apt-get -y -qq install python3 python2 git make bc bison ccache openssl dos2unix zip kmod cpio flex libelf-dev curl libssl-dev libtfm-dev wget device-tree-compiler ca-certificates binutils binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+        git clone  https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9.git -b android12-release --depth=1 gcc32
 
-    - name: 下载 Gcc编译器
-      run: |
-        mkdir gcc64
-        wget -O gcc-aarch64.tar.gz https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/refs/tags/android-12.1.0_r27.tar.gz
-        tar -C gcc64/ -zxvf gcc-aarch64.tar.gz
-
-        mkdir gcc32
-        wget -O gcc-arm.tar.gz https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/+archive/refs/tags/android-12.1.0_r27.tar.gz
-        tar -C gcc32/ -zxvf gcc-arm.tar.gz
-
-        mkdir clang-aosp
-        git clone -q --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6443078 -b 10.0 clang-aosp
+        mkdir -p clang
+        curl -LSs "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r416183b.tar.gz" | tar xz -C clang
 
     - name: 设置ccache缓存
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        key: build-kernel-mido-kernel
-        max-size: 2G
+        key: mt6853
+        restore-key: mt6853
+        max-size: 5G
 
     - name: 编译内核
       working-directory: kernel
       run: |
-        export PATH=$GITHUB_WORKSPACE/clang-aosp/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH
-        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 custom_defconfig
+        export PATH=$GITHUB_WORKSPACE/clang/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH
+        make -s -j$(nproc --all) O=${{ runner.temp }}/make ARCH=arm64 mt6853-ss_defconfig
         make -s -j$(nproc --all) CC="ccache clang" O=${{ runner.temp }}/make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- LD=ld.lld LOCALVERSION=-awkoo
 
     - name: 打包AnyKernel3
@@ -58,7 +57,7 @@ jobs:
        rm -rf .git .github LICENSE README.md
        cat >anykernel.sh <<EOF
        properties() { '
-       kernel.string=Kernel for mt6853 with KernelSU@${{ steps.versions.outputs.KERNELSU }} & SUSFS@${{ steps.versions.outputs.SUSFS }}
+       kernel.string=Kernel for mt6853
        do.devicecheck=0
        '; }
        block=auto
